@@ -1,0 +1,102 @@
+name: Build Mirage
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - README.md
+      - "*.md"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            make \
+            zlib1g-dev \
+            libglfw3-dev \
+            libgl1-mesa-dev
+
+      - name: Build Mirage
+        run: |
+          make clean
+          make -j"$(nproc)" CXX=clang++
+
+      - name: Package Linux build
+        run: |
+          mkdir -p dist/Mirage/lib/linux
+          cp build/Mirage dist/Mirage/
+          cp -a lib/linux/. dist/Mirage/lib/linux/
+          tar -czf Mirage-linux-x86_64.tar.gz -C dist Mirage
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mirage-linux-x86_64
+          path: Mirage-linux-x86_64.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            make
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-glfw
+
+      - name: Build Mirage
+        run: |
+          make clean
+          make -j"$(nproc)"
+
+      - name: Package Windows build
+        run: |
+          mkdir -p dist
+          cp build/Mirage.exe dist/
+          7z a Mirage-windows-x86_64.zip ./dist/Mirage.exe
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mirage-windows-x86_64
+          path: Mirage-windows-x86_64.zip
+          if-no-files-found: error
+          retention-days: 14
