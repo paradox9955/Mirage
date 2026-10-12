@@ -92,7 +92,7 @@ jobs:
         run: |
           mkdir -p dist
           cp build/Mirage.exe dist/
-          7z a Mirage-windows-x86_64.zip ./dist/Mirage.exe
+          zip -j Mirage-windows-x86_64.zip ./dist/Mirage.exe
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
